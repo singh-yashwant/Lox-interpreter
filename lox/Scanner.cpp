@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <map>
 #include <fstream>
 #include <iterator>
 #include <iostream>
@@ -10,19 +11,41 @@ typedef std::istreambuf_iterator<char> buf_iter;
 class Scanner{
     std::ifstream &source;
     std::vector<Token> tokens;
+    std::map<std::string, TokenType>keywords;
     int start, current, line;
     void addToken(TokenType type, int line);
     void addToken(TokenType type, std::string lexeme, int line);
     bool match(char c);
     void matchString();
     void matchNumber(char c);
+    void matchIdentifier(char c);
 
 public:
     Scanner(std::ifstream &in):
         source(in),
         start(0),
         current(0),
-        line(1) {}
+        line(1) {
+            // Initialize keywords
+            // TODO: Move to a helper function
+            // TODO: Separate out keywords into a data class
+            keywords.insert({"and",    AND});
+            keywords.insert({"class",  CLASS});
+            keywords.insert({"else",   ELSE});
+            keywords.insert({"false",  FALSE});
+            keywords.insert({"for",    FOR});
+            keywords.insert({"fun",    FUN});
+            keywords.insert({"if",     IF});
+            keywords.insert({"nil",    NIL});
+            keywords.insert({"or",     OR});
+            keywords.insert({"print",  PRINT});
+            keywords.insert({"return", RETURN});
+            keywords.insert({"super",  SUPER});
+            keywords.insert({"this",   THIS});
+            keywords.insert({"true",   TRUE});
+            keywords.insert({"var",    VAR});
+            keywords.insert({"while",  WHILE});
+        }
     
     std::vector<Token> scanTokens();
     std::string toString(std::ifstream &in);
@@ -36,7 +59,7 @@ std::string Scanner::toString(std::ifstream &in){
 std::vector<Token> Scanner::scanTokens(){
     char cur_char;
     while(source.get(cur_char)){
-        std::cout << cur_char << " ";
+        // std::cout << cur_char << " ";
         // start = current;
         current++;
         switch(cur_char){
@@ -64,6 +87,7 @@ std::vector<Token> Scanner::scanTokens(){
                 addToken(match('=') ? GREATER_EQUAL : GREATER, line);
                 break;
             case '/':
+                // TODO: Match C style inline comments /* ... */
                 if (match('/'))
                     while(source.get() != '\n');
                 else 
@@ -81,9 +105,11 @@ std::vector<Token> Scanner::scanTokens(){
                 break;
             case '"': matchString(); break;
             default:
-                if(std::isdigit(cur_char)){
+                if(std::isdigit(cur_char))
                     matchNumber(cur_char);
-                } else {
+                else if(std::isalpha(cur_char))
+                    matchIdentifier(cur_char);
+                else {
                     // log error
                 }
                 break;
@@ -140,7 +166,7 @@ void Scanner::matchString(){
 
     // add token
     addToken(TokenType::STRING, tok, line);
-    std::cout << "\n **** \n String added: " << tok << "\n **** \n";
+    std::cout << "\n Matched String :: " << tok << "\n";
     // closing "
     source.get();
 }
@@ -176,5 +202,25 @@ void Scanner::matchNumber(char cur_char){
     }
 
     addToken(TokenType::NUMBER, num, line);
-    std::cout << "\n Added Number::: " << num << "\n";
+    std::cout << "\n Matched Number :: " << num << "\n";
+}
+
+void Scanner::matchIdentifier(char cur_char){
+    std::string identifier = "";
+    identifier += cur_char;
+    char next_char = source.peek();
+    while(!source.eof() && std::isalnum(next_char)){
+        identifier += source.get();
+        next_char = source.peek();
+    }
+    
+    // Check if the identifier is a keyword
+    if(keywords[identifier]){
+        std::cout << "\n Matched keyword :: " << identifier << "\n";
+        addToken(keywords[identifier], line);
+        return;
+    }
+
+    std::cout << "\n Matched Identifier :: " << identifier << "\n";
+    addToken(TokenType::IDENTIFIER, identifier, line);
 }
